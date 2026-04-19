@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Dulce Aroma — Pastelería</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --brand:#b8336a; --brand2:#f6c6d3; --ink:#332020; --bg:#fff8f3; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Georgia', serif; margin:0; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:1.5rem 2rem; }
+  header h1 { margin:0; font-size:2rem; letter-spacing:1px; }
+  header p { margin:.3rem 0 0; opacity:.9; }
+  main { max-width:1100px; margin:2rem auto; padding:0 1.5rem; }
+  h2 { border-bottom:2px solid var(--brand2); padding-bottom:.3rem; }
+  .filtros { display:flex; gap:.6rem; flex-wrap:wrap; margin:1rem 0; }
+  .filtros button { background:#fff; border:1px solid var(--brand); color:var(--brand);
+                    padding:.4rem .9rem; border-radius:20px; cursor:pointer; font-family:inherit; }
+  .filtros button.active, .filtros button:hover { background:var(--brand); color:#fff; }
+  .grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); }
+  .card { background:#fff; border-radius:10px; padding:1rem; box-shadow:0 2px 6px rgba(0,0,0,.06);
+          display:flex; flex-direction:column; }
+  .card h3 { margin:.2rem 0 .4rem; color:var(--brand); }
+  .card .cat { font-size:.75rem; text-transform:uppercase; letter-spacing:1px; color:#888; }
+  .card .precio { font-size:1.3rem; font-weight:bold; margin:.5rem 0; }
+  .card .stock { font-size:.8rem; color:#666; margin-bottom:.5rem; }
+  .card button { margin-top:auto; background:var(--brand); color:#fff; border:0;
+                 padding:.5rem; border-radius:6px; cursor:pointer; font-family:inherit; }
+  .card button:disabled { background:#aaa; cursor:not-allowed; }
+  .carrito { background:#fff; border-radius:10px; padding:1rem 1.2rem; margin-top:1rem;
+             box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  .carrito table { width:100%; border-collapse:collapse; }
+  .carrito td, .carrito th { padding:.35rem .3rem; border-bottom:1px solid #eee; text-align:left; font-size:.9rem; }
+  .carrito tr td:last-child { text-align:right; }
+  .total { font-size:1.2rem; font-weight:bold; margin-top:.6rem; text-align:right; color:var(--brand); }
+  .form-row { display:flex; gap:.6rem; flex-wrap:wrap; margin:.6rem 0; }
+  .form-row input { padding:.5rem; border:1px solid #ccc; border-radius:6px; flex:1; font-family:inherit; }
+  .btn-primary { background:var(--brand); color:#fff; border:0; padding:.6rem 1.2rem;
+                 border-radius:6px; cursor:pointer; font-family:inherit; font-size:1rem; }
+  .muted { color:#777; font-size:.9rem; }
+  .pedidos li { background:#fff; margin:.4rem 0; padding:.6rem .9rem; border-radius:8px; }
+  .ok { color:#2d7a3d; } .err { color:#b00; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧁 Dulce Aroma</h1>
+  <p>Pastelería artesanal — catálogo y pedidos en línea</p>
+</header>
+<main>
+  <section>
+    <h2>Catálogo</h2>
+    <div class="filtros" id="filtros"></div>
+    <div class="grid" id="catalogo"></div>
+  </section>
+
+  <section>
+    <h2>Tu pedido</h2>
+    <div class="carrito">
+      <table id="carrito_tbl">
+        <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="total" id="total">Total: S/ 0.00</div>
+      <div class="form-row">
+        <input id="c_nombre" placeholder="Tu nombre" />
+        <input id="c_email" placeholder="Email (opcional)" type="email" />
+        <button class="btn-primary" onclick="enviarPedido()">Confirmar pedido</button>
+      </div>
+      <div id="msg" class="muted"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pedidos recientes</h2>
+    <ul class="pedidos" id="pedidos"></ul>
+  </section>
+</main>
+
+<script>
+let productos = [];
+let carrito = {};
+let catActiva = '';
+
+async function cargarProductos() {
+  const r = await fetch('/api/productos');
+  productos = await r.json();
+  renderFiltros(); renderCatalogo();
+}
+
+function renderFiltros() {
+  const cats = [...new Set(productos.map(p => p.categoria))];
+  const cont = document.getElementById('filtros');
+  cont.innerHTML = '';
+  const mkBtn = (label, val) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (val === catActiva) b.classList.add('active');
+    b.onclick = () => { catActiva = val; renderFiltros(); renderCatalogo(); };
+    cont.appendChild(b);
+  };
+  mkBtn('Todo', '');
+  cats.forEach(c => mkBtn(c, c));
+}
+
+function renderCatalogo() {
+  const cont = document.getElementById('catalogo');
+  cont.innerHTML = '';
+  const lista = catActiva ? productos.filter(p => p.categoria === catActiva) : productos;
+  for (const p of lista) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    const sinStock = p.stock <= 0 || !p.disponible;
+    div.innerHTML = `
+      <div class="cat">${p.categoria}</div>
+      <h3>${p.nombre}</h3>
+      <div class="muted">${p.descripcion ?? ''}</div>
+      <div class="precio">S/ ${Number(p.precio).toFixed(2)}</div>
+      <div class="stock">Stock: ${p.stock}</div>
+      <button ${sinStock ? 'disabled' : ''} onclick='addCarrito(${p.id})'>
+        ${sinStock ? 'Agotado' : 'Agregar'}
+      </button>`;
+    cont.appendChild(div);
+  }
+}
+
+function addCarrito(id) {
+  carrito[id] = (carrito[id] || 0) + 1;
+  renderCarrito();
+}
+
+function renderCarrito() {
+  const tb = document.querySelector('#carrito_tbl tbody');
+  tb.innerHTML = '';
+  let total = 0;
+  for (const [pid, cant] of Object.entries(carrito)) {
+    const p = productos.find(x => x.id == pid);
+    if (!p) continue;
+    const sub = Number(p.precio) * cant;
+    total += sub;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${p.nombre}</td><td>${cant}</td>
+      <td>S/ ${Number(p.precio).toFixed(2)}</td>
+      <td>S/ ${sub.toFixed(2)}</td>
+      <td><button onclick="quitar(${pid})">Quitar</button></td>`;
+    tb.appendChild(tr);
+  }
+  document.getElementById('total').textContent = 'Total: S/ ' + total.toFixed(2);
+}
+
+function quitar(id) { delete carrito[id]; renderCarrito(); }
+
+async function enviarPedido() {
+  const msg = document.getElementById('msg');
+  msg.textContent = '';
+  const items = Object.entries(carrito).map(([pid, c]) => ({ producto_id: +pid, cantidad: c }));
+  if (!items.length) { msg.textContent = 'Agrega al menos un producto.'; msg.className='err'; return; }
+  const nombre = document.getElementById('c_nombre').value.trim();
+  if (!nombre) { msg.textContent = 'Indica tu nombre.'; msg.className='err'; return; }
+  const body = {
+    cliente_nombre: nombre,
+    cliente_email: document.getElementById('c_email').value.trim() || null,
+    items,
+  };
+  const r = await fetch('/api/pedidos', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const t = await r.text(); msg.textContent = 'Error: ' + t; msg.className='err'; return;
+  }
+  const data = await r.json();
+  msg.textContent = `Pedido #${data.id} confirmado. Total: S/ ${Number(data.total).toFixed(2)}`;
+  msg.className = 'ok';
+  carrito = {};
+  renderCarrito();
+  cargarProductos();
+  cargarPedidos();
+}
+
+async function cargarPedidos() {
+  const r = await fetch('/api/pedidos');
+  const data = await r.json();
+  const ul = document.getElementById('pedidos');
+  ul.innerHTML = '';
+  for (const p of data.slice(0, 10)) {
+    const li = document.createElement('li');
+    const items = p.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ');
+    li.innerHTML = `<strong>#${p.id}</strong> — ${p.cliente_nombre} · ${items}
+      <span class="muted">(S/ ${Number(p.total).toFixed(2)}, ${p.estado})</span>`;
+    ul.appendChild(li);
+  }
+}
+
+cargarProductos();
+cargarPedidos();
+</script>
+</body>
+</html>
