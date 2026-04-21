@@ -4,6 +4,14 @@ Aplicación web para gestionar el catálogo y los pedidos de una pastelería
 artesanal. Compuesta por tres contenedores independientes orquestados con
 Docker Compose.
 
+## Demostración en video
+
+Grabación del levantamiento del sistema, carga inicial de datos, consulta
+del catálogo, creación de pedidos, verificación de persistencia tras un
+reinicio y detención limpia de los contenedores:
+
+[Ver video en Google Drive](https://drive.google.com/file/d/1YVQ5YELhiDoxnnCVa9jvZTKDYdbDGs9E/view?usp=sharing)
+
 | Servicio   | Tecnología               | Rol                                      |
 | ---------- | ------------------------ | ---------------------------------------- |
 | `db`       | PostgreSQL 16            | Persistencia de productos y pedidos      |
